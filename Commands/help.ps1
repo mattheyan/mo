@@ -24,7 +24,7 @@ $commandPath = Join-Path $here "$($Command).ps1"
 if (Test-Path $commandPath) {
     $help = Get-Help $commandPath
     $usageText = ((($help.syntax | Out-String) -split "`r`n") | Where-Object -Property Length -GT 0) -join ' '
-    $usage = $usageText.Replace($commandPath, $Command).Replace("  [<CommonParameters>]", '').Replace(" [[-Params] <Object>]", '')
+    $usage = $usageText.Replace($commandPath, $Command).Replace("  [<CommonParameters>]", '').Replace(" [<CommonParameters>]", '').Replace(" [[-Params] <Object>]", '').Replace(" [[-Params]  <Object>]", '')
     $parameters = $help.parameters | ForEach-Object parameter | Where-Object -Property name -NE 'Params'
 
     Write-Host "Usage: mo $usage"
