@@ -12,7 +12,7 @@ Get-ChildItem "$($root)\Modules" | ForEach-Object {
             $psm1 = Join-Path $_.FullName "$($_.Name).psm1"
             if (Test-Path $psm1) {
                 Write-Verbose "Importing '$($_.Name).psm1'..."
-                Import-Module $psd1
+                Import-Module $psm1
             } else {
                 Write-Verbose "No module in directory."
             }
