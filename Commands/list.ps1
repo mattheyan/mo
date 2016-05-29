@@ -37,6 +37,12 @@ if ($Global.IsPresent) {
             if (Test-Path $psd1) {
                 $moduleDef = Import-PSData -Path $psd1
                 $version = $moduleDef.ModuleVersion
+            } else {
+                $nuspec = Join-Path $_.FullName "$($_.Name).nuspec"
+                if (Test-Path $nuspec) {
+                    $pkgDef = [xml](Get-Content $nuspec)
+                    $version = $pkgDef.package.metadata.version
+                }
             }
 
             Write-Output " - $($_.Name)$(if ($version) { '@' + $version } else { '' })"
