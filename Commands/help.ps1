@@ -46,7 +46,6 @@ if ($Command) {
 } else {
     $moRoot = (Split-Path (Split-Path (gcm mo).Path -Parent) -Parent)
     $moVersion = Get-Content (Join-Path $moRoot "bin\version.txt")
-    Write-Host "Mo v$($moVersion)"
     Write-Host "Usage: Mo <command> [args] [options]"
     Write-Host "Type 'Mo help <command>' for help on a specific command."
     Write-Host ""

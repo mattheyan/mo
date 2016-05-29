@@ -1,0 +1,30 @@
+@{
+    RootModule = 'PsTraverse.psm1'
+    ModuleVersion = '0.1.0'
+    GUID = 'ed384e2a-c347-1878-1b30-6eacba9c1d1d'
+    Author = 'Bryan Matthews'
+    CompanyName = ''
+    Copyright = '(c) 2016 Bryan Matthews. All rights reserved.'
+    Description = ''
+    PowerShellVersion = '3.0'
+    # DotNetFrameworkVersion = ''
+    # PowerShellHostName = ''
+    # PowerShellHostVersion = ''
+    # CLRVersion = ''
+    # ProcessorArchitecture = ''
+    # RequiredModules = @()
+    # RequiredAssemblies = @()
+    # ScriptsToProcess = @()
+    # TypesToProcess = @()
+    # FormatsToProcess = @()
+    # NestedModules = @()
+    FunctionsToExport = '*'
+    CmdletsToExport = '*'
+    VariablesToExport = '*'
+    AliasesToExport = '*'
+    # ModuleList = @()
+    # FileList = @()
+    # PrivateData = ''
+    # HelpInfoURI = ''
+    # DefaultCommandPrefix = ''
+}
