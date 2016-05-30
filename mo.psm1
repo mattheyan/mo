@@ -24,14 +24,17 @@ function Test-ModuleRoot {
     [CmdletBinding()]
     param(
         [Alias('p')]
-        [string]$Path=$PWD.Path
+        [string]$Path=$PWD.Path,
+
+        [ValidateSet('ModuleDotPsd1File', 'ModulesFolder')]
+        [string[]]$Indicators=@('ModuleDotPsd1File')
     )
 
-    if (Test-Path (Join-Path $Path 'module.psd1')) {
+    if (($Indicators -contains 'ModuleDotPsd1File') -and (Test-Path (Join-Path $Path 'module.psd1'))) {
         return $true
     }
 
-    if (Test-Path (Join-Path $Path 'Modules')) {
+    if (($Indicators -contains 'ModulesFolder') -and (Test-Path (Join-Path $Path 'Modules'))) {
         return $true
     }
 
@@ -44,23 +47,26 @@ function Find-ModuleRoot {
     [CmdletBinding()]
     param(
         [Alias('p')]
-        [string]$Path=$PWD.Path
+        [string]$Path=$PWD.Path,
+
+        [ValidateSet('ModuleDotPsd1File', 'ModulesFolder')]
+        [string[]]$Indicators=@('ModuleDotPsd1File')
     )
 
-    $markerItem = $null
+    $foundItem = $null
 
     Write-Verbose "Checking directory '$($Path)'..."
-    if (Test-ModuleRoot $Path) {
-        $markerItem = (Get-Item $Path)
+    if (Test-ModuleRoot $Path -Indicators $Indicators) {
+        $foundItem = (Get-Item $Path)
     } else {
         Get-ParentItem -Path $Path -Recurse | ForEach-Object {
             Write-Verbose "Checking directory '$($_.FullName)'..."
-            if (Test-ModuleRoot $_.FullName) {
-                $markerItem = $_
+            if (Test-ModuleRoot $_.FullName -Indicators $Indicators) {
+                $foundItem = $_
                 break
             }
         }
     }
 
-    Write-Output $markerItem
+    Write-Output $foundItem
 }
