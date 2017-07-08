@@ -1,7 +1,33 @@
+if (-not($env:PSModulePathProcessID)) {
+	$env:PSModulePathProcessID = [System.Diagnostics.Process]::GetCurrentProcess().Id
+}
+
+function Test-PowerShellProcess {
+	[CmdletBinding()]
+	param(
+		[switch]$Force
+	)
+
+	if ($env:PSModulePathProcessID) {
+		$currentProcess = [System.Diagnostics.Process]::GetCurrentProcess()
+		if ($env:PSModulePathProcessID -ne $currentProcess.Id) {
+			if ($Force.IsPresent) {
+				throw "Cannot reset module path from outside of the PowerShell process."
+			} else {
+				Write-Warning "Changes to the PSModulePath will not take effect from within the calling process."
+			}
+		}
+	} else {
+		Write-Warning "Changes to the PSModulePath may not take effect from within the calling process."
+	}
+}
+
 function Reset-ModulePath {
 	[CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='Low')]
 	param(
 	)
+
+	Test-PowerShellProcess -Force
 
 	if ($PSCmdlet.ShouldProcess('PSModulePath', 'Reset Current Session Value')) {
 	    $env:PSModulePath = ((Get-ModulePath -Persisted) | foreach 'Path') -join ';'
@@ -21,8 +47,12 @@ function Restore-ModulePath {
 	    [Environment]::SetEnvironmentVariable('PSModulePath', "$($Home)\Documents\WindowsPowerShell\Modules", 'User')
 	    [Environment]::SetEnvironmentVariable('PSModulePath', 'C:\Windows\system32\WindowsPowerShell\v1.0\Modules\', 'Machine')
 
-	    # After restoring the 'PSModulePath' environment variable, re-load it into the current session.
-	    Reset-ModulePath
+		try {
+			# After restoring the 'PSModulePath' environment variable, attempt to re-load it into the current session.
+			Reset-ModulePath
+		} catch {
+			Write-Warning $_.Exception.Message
+		}
 	}
 }
 
@@ -65,8 +95,12 @@ function Add-ModulePath {
 	            [System.Environment]::SetEnvironmentVariable('PSModulePath', $userModulePath, 'User')
 	            Write-Verbose "Added '$($Path)' to 'PSModulePath' for the current user."
 
-	            # After modifying the 'PSModulePath' environment variable, re-load it into the current session.
-	            Reset-ModulePath
+				try {
+					# After modifying the 'PSModulePath' environment variable, attempt to re-load it into the current session.
+					Reset-ModulePath
+				} catch {
+					Write-Warning $_.Exception.Message
+				}
 	        }
 	    }
 	}
@@ -89,13 +123,18 @@ function Get-ModulePath {
 
 	    $userModulePath = [Environment]::GetEnvironmentVariable('PSModulePath', 'User')
 	    if ($userModulePath) {
+			Write-Verbose "Found user PSModulePath '$($userModulePath)'."
 	        $pathItems += $userModulePath.Split(@(';'), 'RemoveEmptyEntries')
-	    }
+	    } else {
+			Write-Verbose "Using default user PSModulePath '$(Split-Path $PROFILE -Parent)\Modules'."
+	        $pathItems += "$(Split-Path $PROFILE -Parent)\Modules"
+		}
 
 	    $pathItems += "$($env:ProgramFiles)\WindowsPowerShell\Modules"
 
 	    $systemModulePath = [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')
 	    if ($systemModulePath) {
+			Write-Verbose "Found system PSModulePath '$($systemModulePath)'."
 	        $pathItems += $systemModulePath.Split(@(';'), 'RemoveEmptyEntries')
 	    }
 
@@ -139,7 +178,7 @@ function Remove-ModulePath {
 
 	$systemModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')
 	if (($systemModulePath -split ';') -contains $Path) {
-	    Write-Warning "Cannot remove path '$($Path)' from machine-level ``PSModulePath``."
+	    Write-Error "Cannot remove path '$($Path)' from machine-level ``PSModulePath``."
 	} else {
 	    $userModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath', 'User')
 	    if (($userModulePath -split ';') -contains $Path) {
@@ -148,15 +187,13 @@ function Remove-ModulePath {
 	            [System.Environment]::SetEnvironmentVariable('PSModulePath', $userModulePath, 'User')
 	            Write-Verbose "Removed '$($Path)' from ``PSModulePath`` for the current user."
 
-	            # After modifying the 'PSModulePath' environment variable, re-load it into the current session.
-	            Reset-ModulePath -Confirm:$false
+				try {
+					# After modifying the 'PSModulePath' environment variable, attempt to re-load it into the current session.
+					Reset-ModulePath
+				} catch {
+					Write-Warning $_.Exception.Message
+				}
 	        }
 	    }
 	}
 }
-
-Export-ModuleMember -Function Add-ModulePath
-Export-ModuleMember -Function Get-ModulePath
-Export-ModuleMember -Function Remove-ModulePath
-Export-ModuleMember -Function Reset-ModulePath
-Export-ModuleMember -Function Restore-ModulePath

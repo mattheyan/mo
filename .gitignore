@@ -1,0 +1,9 @@
+*.bak
+.DS_STORE
+PSGetModuleInfo.xml
+*.nupkg
+.vscode/
+psake-local.ps1
+*.patch
+WIP/
+*.lnk

@@ -1,5 +1,3 @@
-Import-Module "$($PSScriptRoot)\ModuleTools.Common.psm1"
-
 function Install-Module {
     [CmdletBinding()]
     param(

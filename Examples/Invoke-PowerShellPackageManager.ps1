@@ -46,7 +46,7 @@ if ($parsedArgs.ContainsKey('Verbose')) {
 }
 
 Write-Verbose "Checking for '$($arg0)-Module' cmdlet."
-$cmdlet = Get-Command "$($arg0)-Module" -Module 'ModuleTools' -EA 0
+$cmdlet = Get-Command "$($arg0)-Module" -Module 'PowerShellPackageManager' -EA 0
 
 if ($cmdlet) {
     $verb = $arg0
@@ -61,7 +61,7 @@ if ($cmdlet) {
 } else {
     if ($arg1) {
         Write-Verbose "Checking for '$($arg1)-Module$($arg0)' cmdlet."
-        $cmdlet = Get-Command "$($arg1)-Module$($arg0)" -Module 'ModuleTools' -EA 0
+        $cmdlet = Get-Command "$($arg1)-Module$($arg0)" -Module 'PowerShellPackageManager' -EA 0
         if ($cmdlet) {
             $verb = $arg1
             $noun = "Module$($arg0)"
@@ -73,7 +73,7 @@ if ($cmdlet) {
         }
     } else {
         Write-Verbose "Checking for 'Get-Module$($arg0)' cmdlet."
-        $cmdlet = Get-Command "Get-Module$($arg0)" -Module 'ModuleTools' -EA 0
+        $cmdlet = Get-Command "Get-Module$($arg0)" -Module 'PowerShellPackageManager' -EA 0
         if ($cmdlet) {
             $verb = "Get"
             $noun = "Module$($arg0)"
@@ -125,11 +125,6 @@ if ($verb -eq 'Get') {
         $result
     }
 } else {
-    if ($InvocationSource -ne 'PowerShell') {
-        if ($noun -eq 'ModulePath' -and @('Add', 'Remove', 'Restore') -contains $verb) {
-            Write-Warning "Environment variable %PSModulePath% may not be accurate after applying this operation."
-        }
-    }
 
     & $cmdlet @parsedArgs
 }
