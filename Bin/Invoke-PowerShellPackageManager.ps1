@@ -45,8 +45,8 @@ if ($parsedArgs.ContainsKey('Verbose')) {
     $parsedArgs.Remove('Verbose') | Out-Null
 }
 
-Write-Verbose "Checking for '$($arg0)-Module' cmdlet."
-$cmdlet = Get-Command "$($arg0)-Module" -Module 'PowerShellPackageManager' -EA 0
+Write-Verbose "Checking for 'Invoke-Module$($arg0)Command' cmdlet."
+$cmdlet = Get-Command "Invoke-Module$($arg0)Command" -Module 'PowerShellPackageManager' -EA 0
 
 if ($cmdlet) {
     $verb = $arg0
@@ -60,8 +60,8 @@ if ($cmdlet) {
     }
 } else {
     if ($arg1) {
-        Write-Verbose "Checking for '$($arg1)-Module$($arg0)' cmdlet."
-        $cmdlet = Get-Command "$($arg1)-Module$($arg0)" -Module 'PowerShellPackageManager' -EA 0
+        Write-Verbose "Checking for 'Invoke-Module$($arg0)$($arg1)Command' cmdlet."
+        $cmdlet = Get-Command "Invoke-Module$($arg0)$($arg1)Command" -Module 'PowerShellPackageManager' -EA 0
         if ($cmdlet) {
             $verb = $arg1
             $noun = "Module$($arg0)"
@@ -72,8 +72,8 @@ if ($cmdlet) {
             throw 'Invalid Usage'
         }
     } else {
-        Write-Verbose "Checking for 'Get-Module$($arg0)' cmdlet."
-        $cmdlet = Get-Command "Get-Module$($arg0)" -Module 'PowerShellPackageManager' -EA 0
+        Write-Verbose "Checking for 'Invoke-Module$($arg0)GetCommand' cmdlet."
+        $cmdlet = Get-Command "Invoke-Module$($arg0)GetCommand" -Module 'PowerShellPackageManager' -EA 0
         if ($cmdlet) {
             $verb = "Get"
             $noun = "Module$($arg0)"
@@ -113,21 +113,7 @@ foreach ($key in $parsedArgs.Keys) {
     Write-Verbose "  $($key): $($parsedArgs[$key])"
 }
 
-if ($verb -eq 'Get') {
-    $result = & $cmdlet @parsedArgs
-    if ($noun -eq 'ModulePath') {
-        $result | Select-Object -ExpandProperty 'Path'
-    } elseif ($noun -eq 'ModuleSource') {
-        $result | ForEach-Object {
-            Write-Output "$($_.Name) - $($_.Location) ($(if ($_.IsTrusted) { 'Trusted' } else { 'Untrusted' }))"
-        }
-    } else {
-        $result
-    }
-} else {
-
-    & $cmdlet @parsedArgs
-}
+& $cmdlet @parsedArgs
 
 <#
 } catch {

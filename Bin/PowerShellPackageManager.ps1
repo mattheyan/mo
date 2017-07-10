@@ -12,7 +12,7 @@ function mo {
 	$env:PSModulePathProcessID = [System.Diagnostics.Process]::GetCurrentProcess().Id
 
 	try {
-		& "$($here)\..\Scripts\Invoke-PowerShellPackageManager.ps1" -Params $Args
+		Invoke-ModuleCommand -Params $Args
 	} finally {
 		Remove-Module 'PowerShellPackageManager' -EA 0
 	}

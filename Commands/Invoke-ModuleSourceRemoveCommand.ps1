@@ -1,4 +1,10 @@
-function Remove-ModuleSource {
+<#
+
+.SYNOPSIS
+Removes a registered module source.
+
+#>
+function Invoke-ModuleSourceRemoveCommand {
     [CmdletBinding()]
     param(
         [Alias('n')]

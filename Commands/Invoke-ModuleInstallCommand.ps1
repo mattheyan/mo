@@ -1,4 +1,10 @@
-function Install-Module {
+<#
+
+.SYNOPSIS
+Installs a module.
+
+#>
+function Invoke-ModuleInstallCommand {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0)]

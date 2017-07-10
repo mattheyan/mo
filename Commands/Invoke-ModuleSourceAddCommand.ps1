@@ -1,4 +1,10 @@
-function Add-ModuleSource {
+<#
+
+.SYNOPSIS
+Adds a registered module source.
+
+#>
+function Invoke-ModuleSourceAddCommand {
     [CmdletBinding()]
     param(
         [Alias('n')]
