@@ -12,7 +12,7 @@
 RootModule = 'ModuleTools.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.2.0'
+ModuleVersion = '0.2.1'
 
 # ID used to uniquely identify this module
 GUID = 'c9269530-189a-cb0e-d617-9b79f901afa8'
@@ -27,7 +27,7 @@ CompanyName = 'VC3, Inc.'
 Copyright = '(c) 2016 Bryan Matthews. All rights reserved.'
 
 # Description of the functionality provided by this module
-# Description = ''
+Description = 'A collection of tools for working with PowerShell modules.'
 
 # Minimum version of the Windows PowerShell engine required by this module
 # PowerShellVersion = ''
