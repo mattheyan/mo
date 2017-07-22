@@ -8,7 +8,9 @@ function Invoke-ModuleInstallCommand {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, Position=0)]
-        [string]$Name
+        [string]$Name,
+
+        [string]$Version
     )
 
     Write-Verbose "Searching for module root from '$($PWD.Path)'..."
@@ -18,14 +20,32 @@ function Invoke-ModuleInstallCommand {
     if ($root) {
         Write-Verbose "Found module root '$($root)'."
 
+        $findPackageArgs = @{
+            'Name' = $Name
+            'Provider' = 'NuGet'
+        }
+
+        if ($Version) {
+            $findPackageArgs['RequiredVersion'] = $Version
+        }
+
         Write-Message "Searching for package '$($Name)'..."
-        $package = Find-Package -Name $Name -Provider 'NuGet'
+        $package = Find-Package @findPackageArgs
 
         if ($package) {
             $tempFolder = Get-TempFolder
 
+            $savePackageArgs = @{
+                'Path' = $tempFolder
+                'Provider' = 'NuGet'
+            }
+
+            if ($Version) {
+                $savePackageArgs['RequiredVersion'] = $Version
+            }
+
             Write-Message "Downloading package $($package.Name)@$($package.Version)..."
-            $packages = $package | Save-Package -Path $tempFolder -Provider 'NuGet'
+            $packages = $package | Save-Package @savePackageArgs
 
             $packagesToUnpack = [array]($packages | Where-Object {
                 Write-Message "Downloaded package $($_.PackageFilename)."
@@ -63,7 +83,7 @@ function Invoke-ModuleInstallCommand {
 
                     $robocopyArgs = @{
                         'Source' = $unzipDir
-                        'Destination' = "$($stagingDir)\$($_.Version)"
+                        'Destination' = $stagingDir
                         'MirrorDirectoryTree' = $true
                         'ExcludeFiles' = @('[Content_Types].xml', "$($_.Name).nuspec")
                         'ExcludeDirectories' = @('package', '_rels')
