@@ -27,5 +27,3 @@ function Get-ParentItem {
 	    }
 	}
 }
-
-Export-ModuleMember -Function Get-ParentItem

@@ -67,7 +67,6 @@ Copyright = '(c) 2017 Bryan Matthews. All rights reserved.'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
 NestedModules = @('.\Modules\ModuleTools\ModuleTools.psd1', 
-               '.\Modules\PsTraverse\PSTraverse.psd1',
                '.\Modules\PSData\PSData.psd1',
                '.\Modules\ShellOut\ShellOut.psd1',
                '.\Modules\7zip\7zip.psd1')
