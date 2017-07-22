@@ -6,11 +6,6 @@
 #  Company: VC3, Inc.                                                          #
 ################################################################################
 
-Get-ChildItem "$($PSScriptRoot)\Helpers" -Recurse -Filter *.ps1 | ForEach-Object {
-    Write-Verbose "Importing '$($_.FullName)'..."
-    . $_.FullName
-}
-
 Get-ChildItem "$($PSScriptRoot)\Functions" -Recurse -Filter *.ps1 | ForEach-Object {
     Write-Verbose "Importing '$($_.FullName)'..."
     . $_.FullName
