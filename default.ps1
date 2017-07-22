@@ -12,7 +12,7 @@ $here = Split-Path $MyInvocation.MyCommand.Path -Parent
 
 Write-Message "[[DarkGreen:PsakeTaskRoot]]: $PsakeTaskRoot"
 
-include '.\Modules\Psake-Choco\psake-tasks.ps1'
+include '.\DevModules\Psake-Choco\psake-tasks.ps1'
 
 properties {
 	if ($env:ChocolateyLocal -and (Test-Path $env:ChocolateyLocal)) {
