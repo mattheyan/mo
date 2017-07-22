@@ -59,6 +59,23 @@ function Invoke-ModuleInstallCommand {
         if ($root) {
             Write-Verbose "Found module root '$($root)'."
 
+            $module = Resolve-Module -Name $Name -ModulesFolder $root\Modules -EA 0
+
+            if ($module) {
+                if (-not($Version) -or $module.Version -eq $Version) {
+                    Write-Message "Module $($Name)@$($module.Version) is already installed."
+                    return 
+                } elseif (-not($module.Version)) {
+                    Write-Warning "Module $($Name)@??? is installed."
+                    return
+                } elseif ($module.Version -ge $Version) {
+                    Write-Warning "Module $($Name)@$($module.Version) is installed."
+                    return
+                } else {
+                    Write-Message "Module $($Name)@$(if($module.Version){$module.Version}else{'???'}) is installed."
+                }
+            }
+
             $findPackageArgs = @{
                 'Name' = $Name
                 'Provider' = 'NuGet'
@@ -68,7 +85,7 @@ function Invoke-ModuleInstallCommand {
                 $findPackageArgs['RequiredVersion'] = $Version
             }
 
-            Write-Message "Searching for package '$($Name)'..."
+            Write-Message "Searching for module '$($Name)'..."
             $package = Find-Package @findPackageArgs
 
             if ($package) {
@@ -83,27 +100,29 @@ function Invoke-ModuleInstallCommand {
                     $savePackageArgs['RequiredVersion'] = $Version
                 }
 
-                Write-Message "Downloading package $($package.Name)@$($package.Version)..."
+                Write-Message "Downloading module $($package.Name)@$($package.Version)..."
                 $packages = $package | Save-Package @savePackageArgs
 
                 $packagesToUnpack = [array]($packages | Where-Object {
-                    Write-Message "Downloaded package $($_.PackageFilename)."
+                    Write-Verbose "Downloaded module $($_.PackageFilename)."
 
-                    if (Test-Path "$($root)\Modules\$($_.Name)") {
-                        if (Test-Path "$($root)\Modules\$($_.Name)\$($_.Version)") {
-                            Write-Message "Package $($_.Name)@$($_.Version) is already installed."
-                            return $false
-                        }
+                    # Attempt to detect dependencies that are already installed
+                    if ($_.Name -ne $Name) {
+                        Write-Verbose "Checking for module '$($_.Name)'..."
+                        $module = Resolve-Module -Name $_.Name -ModulesFolder $root\Modules -EA 0
 
-                        if (Test-Path "$($root)\Modules\$($_.Name)\$($_.Name).psd1") {
-                            try {
-                                $manifest = Import-PSData "$($root)\Modules\$($_.Name)\$($_.Name).psd1"
-                                if ($manifest.ModuleVersion -ge $_.Version) {
-                                    Write-Message "Package $($_.Name)@$($_.Version) is already installed."
-                                    return $false
-                                }
-                            } catch {
-                                Write-Warning "Unable to parse module manifest '.\Modules\$($_.Name)\$($_.Name).psd1"
+                        if ($module) {
+                            if ($module.Version -eq $_.Version) {
+                                Write-Verbose "Module $($_.Name)@$($module.Version) is already installed."
+                                return $false
+                            } elseif (-not($module.Version)) {
+                                Write-Warning "Module $($_.Name)@??? is installed."
+                                return $false
+                            } elseif ($module.Version -ge $_.Version) {
+                                Write-Warning "Module $($_.Name)@$($module.Version) is installed."
+                                return $false
+                            } else {
+                                Write-Verbose "Module $($_.Name)@$(if($module.Version){$module.Version}else{'???'}) is installed."
                             }
                         }
                     }
@@ -142,7 +161,7 @@ function Invoke-ModuleInstallCommand {
                             'ExcludeDirectories' = @('package', '_rels')
                         }
 
-                        Invoke-Robocopy @robocopyArgs | Out-Null
+                        Invoke-Robocopy @robocopyArgs -Verbose:$false | Out-Null
 
                         # Remove-Item $unzipDir -Force -Recurse -Confirm:$false | Out-Null
 
@@ -153,11 +172,11 @@ function Invoke-ModuleInstallCommand {
                         }
 
                         Write-Message "Copying files to .\Modules\$($_.Name)..."
-                        Invoke-Robocopy @robocopyArgs | Out-Null
+                        Invoke-Robocopy @robocopyArgs -Verbose:$false | Out-Null
                     }
                 }
             } else {
-                Write-Error "Couldn't find package '$($Name)'."
+                Write-Error "Couldn't find module '$($Name)'."
             }
         } else {
             Write-Error "Couldn't find module root."

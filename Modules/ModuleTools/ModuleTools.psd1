@@ -12,7 +12,7 @@
 RootModule = 'ModuleTools.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.2.1'
+ModuleVersion = '0.3.0'
 
 # ID used to uniquely identify this module
 GUID = 'c9269530-189a-cb0e-d617-9b79f901afa8'
