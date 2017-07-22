@@ -4,8 +4,8 @@ function Find-ModuleRoot {
 	    [Alias('p')]
 	    [string]$Path=$PWD.Path,
 	
-	    [ValidateSet('ModuleDotPsd1File', 'ModulesFolder')]
-	    [string[]]$Indicators=@('ModuleDotPsd1File')
+	    [ValidateSet('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')]
+	    [string[]]$Indicators=@('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')
 	)
 	
 	# Based on NPM (and git) file/folder searchig algorithm.

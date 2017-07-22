@@ -21,7 +21,76 @@ Get-ChildItem "$($PSScriptRoot)\Commands" -Recurse -Filter *.ps1 | ForEach-Objec
     . $_.FullName
 }
 
+function Write-Message {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$Message
+    )
+
+    Write-Host $Message
+}
+
+function Get-TempFolder {
+    [CmdletBinding()]
+    param(
+    )
+
+    $tempFolder = "$($env:TEMP)\PowerShellPackageManager"
+
+    if (-not(Test-Path $tempFolder)) {
+        mkdir $tempFolder | Out-Null
+    }
+
+    if (-not(Test-Path "$tempFolder\.staging")) {
+        New-Item "$tempFolder\.staging" -Type Directory | Out-Null
+        $stagingFolderItem = Get-Item "$tempFolder\.staging"
+        $stagingFolderItem.Attributes += 'Hidden'
+    }
+
+    $stagingFolderItem = Get-Item "$tempFolder\.staging" -Force
+
+    if (-not($stagingFolderItem.Attributes -match '(^|,)\s*Hidden\s*($|,)')) {
+        Write-Warning "Staging folder is not hidden."
+    }
+
+    return $tempFolder
+}
+
+function Get-Hash {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true, Position=0, ValueFromPipeline=$true)]
+        [string]$InputObject,
+
+        [ValidateSet('Bytes', 'String', 'Guid')]
+        [string]$OutputType = 'Bytes'
+    )
+
+    if (-not($OutputType)) {
+        $outputType = 'Bytes'
+    }
+
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+
+    $data = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($InputObject))
+
+    if ($OutputType -eq 'String') {
+        return ([System.Text.Encoding]::UTF8.GetString($data))
+    } elseif ($OutputType -eq 'Guid') {
+        return (New-Object 'System.Guid' -ArgumentList (,$data))
+    } else {
+        return $data
+    }
+}
+
 function Invoke-ModuleCommand {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromRemainingArguments=$true)]
+        $Params
+    )
+
     $PSModuleAutoloadingPreference = 'None'
 
     $ErrorActionPreference = 'Stop'
@@ -29,7 +98,7 @@ function Invoke-ModuleCommand {
 
     $here = Split-Path $script:MyInvocation.MyCommand.Path -Parent
 
-    if ($Args -contains '-Verbose' -or $Args -contains '-v') {
+    if ($Params -contains '-Verbose' -or $Params -contains '-v') {
         $VerbosePreference = 'Continue'
     }
 
@@ -40,9 +109,9 @@ function Invoke-ModuleCommand {
     $positionalArgs = @('Arg0', 'Arg1')
 
     Write-Verbose "Parsing unbound arguments..."
-    $parsedArgs = $Args | ConvertTo-ParameterHash -PositionalParameters $positionalArgs -ErrorAction Stop
+    $parsedArgs = $Params | ConvertTo-ParameterHash -PositionalParameters $positionalArgs -ErrorAction Stop
 
-    Write-Verbose "Args:`r`n$(($parsedArgs.Keys | foreach { (' ' * 11) + $_ + '=' + $parsedArgs[$_] }) -join "`r`n")"
+    # Write-Verbose "Args:`r`n$(($parsedArgs.Keys | foreach { (' ' * 11) + $_ + '=' + $parsedArgs[$_] }) -join "`r`n")"
 
     $verboseEnabled = $parsedArgs | Extract-HashtableKey -Keys 'Verbose','v' -DefaultValue $false
 

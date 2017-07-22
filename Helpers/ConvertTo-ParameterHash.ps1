@@ -20,6 +20,7 @@ function ConvertTo-ParameterHash {
         $parameterHash = @{}
 
         if ($PSCmdlet.ParameterSetName -eq 'String') {
+            Write-Verbose "Parsing parameter string '$($ParameterString)'..."
             $parseErrors = $null
             $parameterList = [System.Management.Automation.PSParser]::Tokenize('Verb-Noun ' + $ParameterString, [ref]$parseErrors) |`
                         select -Skip 1 | foreach {
@@ -39,8 +40,9 @@ function ConvertTo-ParameterHash {
         if ($parameterList.Count -gt 0) {
             for ($i = 0; $i -lt $parameterList.Count; $i += 1) {
                 $param = $parameterList[$i]
-                Write-Verbose "Param: $param"
+                Write-Verbose "[$($i)]: $param"
                 if ($param -match '^\-([A-Za-z0-9]+\:?)$') {
+                    Write-Verbose "Found flag '$($param)'."
                     if ($parameterName) {
                         if ($parameterName.EndsWith(':')) {
                             Write-Error "Invalid syntax '$($parameterName)'."
@@ -83,6 +85,7 @@ function ConvertTo-ParameterHash {
                     }
                 } elseif ($PositionalParameters.Count -gt 0) {
                     $parameterName = $PositionalParameters[0]
+                    Write-Verbose "Found positional parameter $($parameterName)."
                     $parameterValue = $param
                     $parameterReady = $true
                 } else {

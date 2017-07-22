@@ -197,3 +197,9 @@ function Remove-ModulePath {
 	    }
 	}
 }
+
+Export-ModuleMember -Function Add-ModulePath
+Export-ModuleMember -Function Get-ModulePath
+Export-ModuleMember -Function Remove-ModulePath
+Export-ModuleMember -Function Reset-ModulePath
+Export-ModuleMember -Function Restore-ModulePath
