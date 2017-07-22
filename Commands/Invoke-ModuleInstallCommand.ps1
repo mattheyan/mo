@@ -50,9 +50,23 @@ function Invoke-ModuleInstallCommand {
             $packagesToUnpack = [array]($packages | Where-Object {
                 Write-Message "Downloaded package $($_.PackageFilename)."
 
-                if (Test-Path "$($root)\Modules\$($_.Name)\$($_.Version)") {
-                    Write-Message "Package $($_.Name)@$($_.Version) is already installed."
-                    return $false
+                if (Test-Path "$($root)\Modules\$($_.Name)") {
+                    if (Test-Path "$($root)\Modules\$($_.Name)\$($_.Version)") {
+                        Write-Message "Package $($_.Name)@$($_.Version) is already installed."
+                        return $false
+                    }
+
+                    if (Test-Path "$($root)\Modules\$($_.Name)\$($_.Name).psd1") {
+                        try {
+                            $manifest = Import-PSData "$($root)\Modules\$($_.Name)\$($_.Name).psd1"
+                            if ($manifest.ModuleVersion -ge $_.Version) {
+                                Write-Message "Package $($_.Name)@$($_.Version) is already installed."
+                                return $false
+                            }
+                        } catch {
+                            Write-Warning "Unable to parse module manifest '.\Modules\$($_.Name)\$($_.Name).psd1"
+                        }
+                    }
                 }
 
                 return $true
@@ -99,7 +113,7 @@ function Invoke-ModuleInstallCommand {
                         'MirrorDirectoryTree' = $true
                     }
 
-                    Write-Message "Copying files to .\Modules\$($_.Name)\$($_.Version)..."
+                    Write-Message "Copying files to .\Modules\$($_.Name)..."
                     Invoke-Robocopy @robocopyArgs | Out-Null
                 }
             }
