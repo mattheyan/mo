@@ -68,8 +68,8 @@ Copyright = '(c) 2017 Bryan Matthews. All rights reserved.'
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
 NestedModules = @('.\Modules\ModuleTools\ModuleTools.psd1', 
                '.\Modules\PsTraverse\PSTraverse.psd1',
-               '.\Modules\ShellOut\0.9.0\ShellOut.psd1',
-               '.\Modules\7zip\0.10.1\7zip.psd1')
+               '.\Modules\ShellOut\ShellOut.psd1',
+               '.\Modules\7zip\7zip.psd1')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = 'Invoke-ModuleInstallCommand', 'Invoke-ModulePathAddCommand', 
