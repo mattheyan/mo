@@ -20,6 +20,7 @@ function Get-ParentItem {
 	            $fromPath = Resolve-Path $fromPath
 	            $parentPath = Split-Path $fromPath -Parent
 	            if ($parentPath) {
+					Write-Verbose "Returning parent item '$($parentPath)'."
 	                Write-Output (Get-Item $parentPath)
 	            }
 	            $fromPath = $parentPath

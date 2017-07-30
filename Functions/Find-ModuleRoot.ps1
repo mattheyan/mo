@@ -4,6 +4,7 @@ function Find-ModuleRoot {
 	    [Alias('p')]
 	    [string]$Path=$PWD.Path,
 	
+		# A prioritized list of indicators to check for
 	    [ValidateSet('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')]
 	    [string[]]$Indicators=@('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')
 	)
@@ -11,20 +12,49 @@ function Find-ModuleRoot {
 	# Based on NPM (and git) file/folder searchig algorithm.
 	# https://docs.npmjs.com/files/folders#more-information
 	
-	$foundItem = $null
+	$rootPath = $null
+	$rootIndicator = $null
 	
 	Write-Verbose "Checking directory '$($Path)'..."
-	if ((Test-ModuleRoot $Path -Indicators $Indicators)) {
-	    $foundItem = (Get-Item $Path)
-	} else {
-	    Get-ParentItem -Path $Path -Recurse | ForEach-Object {
-	        Write-Verbose "Checking directory '$($_.FullName)'..."
-	        if ((Test-ModuleRoot $_.FullName -Indicators $Indicators)) {
-	            $foundItem = $_
-	            break
-	        }
-	    }
+	foreach ($indicator in $indicators) {
+		if (-not($rootPath)) {
+			if (Test-ModuleRoot $Path -Indicators $indicator) {
+				Write-Verbose "Found module root indicator '$($indicator)'."
+				$rootPath = $Path
+				$rootIndicator = $indicator
+				break
+			}
+		}
 	}
 	
-	Write-Output $foundItem
+	if (-not($rootPath)) {
+		Get-ParentItem -Path $Path -Recurse | ForEach-Object {
+			if (-not($rootPath)) {
+				Write-Verbose "Checking directory '$($_.FullName)'..."
+				foreach ($indicator in $indicators) {
+					if (-not($rootPath)) {
+						if (Test-ModuleRoot $_.FullName -Indicators $indicator) {
+							Write-Verbose "Found module root indicator '$($indicator)'."
+							$rootPath = $_.FullName
+							$rootIndicator = $indicator
+							break
+						}
+					}
+				}
+
+				if ($rootPath) {
+					break
+				}
+			}
+		}
+	}
+	
+	if ($rootPath) {
+		$root = New-Object 'PSObject'
+
+		$root | Add-Member -Type 'NoteProperty' -Name 'Indicator' -Value $rootIndicator
+		$root | Add-Member -Type 'NoteProperty' -Name 'Path' -Value $rootPath
+
+		Write-Output $root
+	}
 }

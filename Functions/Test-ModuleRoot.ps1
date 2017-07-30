@@ -4,20 +4,32 @@ function Test-ModuleRoot {
 	    [Alias('p')]
 	    [string]$Path=$PWD.Path,
 	
+		# A prioritized list of indicators to check for
 	    [ValidateSet('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')]
 	    [string[]]$Indicators=@('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')
 	)
 	
-	if (($Indicators -contains 'ModuleDotPsd1File') -and (Test-Path (Join-Path $Path 'module.psd1'))) {
-	    return $true
-	}
-	
-	if (($Indicators -contains 'ModuleManifest') -and (Test-Path (Join-Path $Path '*.psd1'))) {
-	    return $true
-	}
-	
-	if (($Indicators -contains 'ModulesFolder') -and (Test-Path (Join-Path $Path 'Modules'))) {
-	    return $true
+	foreach ($indicator in $Indicators) {
+		switch ($indicator) {
+			'ModuleDotPsd1File' {
+				if (Test-Path (Join-Path $Path 'module.psd1')) {
+					return $true
+				}
+			}
+			'ModuleManifest' {
+				$psd1Files = [array](Resolve-Path (Join-Path $Path '*.psd1') -ErrorAction 'SilentlyContinue')
+				if ($psd1Files.Count -eq 1) {
+					return $true
+				} elseif ($psd1Files.Count -gt 1) {
+					Write-Warning "Found multiple '.psd1' files at path '$($Path)'."
+				}
+			}
+			'ModulesFolder' {
+				if (Test-Path (Join-Path $Path 'Modules')) {
+					return $true
+				}
+			}
+		}
 	}
 	
 	return $false

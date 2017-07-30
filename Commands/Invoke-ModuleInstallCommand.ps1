@@ -57,9 +57,9 @@ function Invoke-ModuleInstallCommand {
         $root = Find-ModuleRoot
 
         if ($root) {
-            Write-Verbose "Found module root '$($root)'."
+            Write-Verbose "Found module root '$($root.Path)'."
 
-            $module = Resolve-Module -Name $Name -ModulesFolder $root\Modules -EA 0
+            $module = Resolve-Module -Name $Name -ModulesFolder "$($root.Path)\Modules" -EA 0
 
             if ($module) {
                 if (-not($Version) -or $module.Version -eq $Version) {
@@ -109,7 +109,7 @@ function Invoke-ModuleInstallCommand {
                     # Attempt to detect dependencies that are already installed
                     if ($_.Name -ne $Name) {
                         Write-Verbose "Checking for module '$($_.Name)'..."
-                        $module = Resolve-Module -Name $_.Name -ModulesFolder $root\Modules -EA 0
+                        $module = Resolve-Module -Name $_.Name -ModulesFolder "$($root.Path)\Modules" -EA 0
 
                         if ($module) {
                             if ($module.Version -eq $_.Version) {
@@ -131,7 +131,7 @@ function Invoke-ModuleInstallCommand {
                 })
 
                 if ($packagesToUnpack.Count -gt 0) {
-                    $modulesFolder = "$($root)\Modules"
+                    $modulesFolder = "$($root.Path)\Modules"
 
                     $modulesFolderHash = $modulesFolder.ToLower() | Get-Hash -OutputType 'Bytes'
 
