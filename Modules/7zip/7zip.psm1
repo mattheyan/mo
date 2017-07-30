@@ -50,7 +50,11 @@ function Compress-Archive {
 	    [switch]$Silent,
 	
 	    [Alias('IgnoreWarnings')]    
-	    [switch]$IgnoreNonFatalErrors
+	    [switch]$IgnoreNonFatalErrors,
+	
+	    [switch]$IncludeArchives,
+	
+	    [string[]]$Exclude
 	)
 	
 	
@@ -102,14 +106,20 @@ function Compress-Archive {
 	
 	    $inputItem = Get-Item $Path
 	    if ($inputItem.PSIsContainer) {
-	        Get-ChildItem $Path -Exclude *.zip | ForEach-Object {
+	        if ($IncludeArchives.IsPresent) {
+	            $childItems = Get-ChildItem $Path
+	        } else {
+	            $childItems = Get-ChildItem $Path -Exclude *.zip
+	        }
+	
+	        $childItems | ForEach-Object {
 	            if ($Recurse -or !$_.PSIsContainer) {
 	                $arguments += " ""$($_.FullName)"""
 	            }
 	        }
 	    }
 		else {
-			$arguments = " ""$Path"""
+			$arguments += " ""$Path"""
 		}
 	
 	    if ($Recurse) {
@@ -117,6 +127,50 @@ function Compress-Archive {
 	    }
 	
 	    $arguments += " -y"
+	
+	    if (-not($IncludeArchives.IsPresent)) {
+	        $arguments += " -ax!*"
+	    }
+	
+	    $excludeListFiles = @()
+	
+	    foreach ($x in $Exclude) {
+	        if ([System.IO.Path]::IsPathRooted($x)) {
+	            if (Test-Path $x) {
+	                $excludeListFiles += (Resolve-Path $x).Path
+	            } else {
+	                Write-Warning "Path '$($x)' doesn't exist."
+	                $excludeListFiles += $x
+	            }
+	        } elseif ($x -like '*\*') {
+	            $arguments += " -x!"
+	            if ($xPath -like '* *') {
+	                $arguments += "`"$($x)`""
+	            } else {
+	                $arguments += "$($x)"
+	            }
+	        } else {
+	            $arguments += " -xr!"
+	            if ($xPath -like '* *') {
+	                $arguments += "`"$($x)`""
+	            } else {
+	                $arguments += "$($x)"
+	            }
+	        }
+	    }
+	
+	    if ($excludeListFiles) {
+	        $listfile = [IO.Path]::GetTempFileName()
+	
+	        $excludeListFiles | Out-File $listfile -Encoding UTF8
+	
+	        $arguments += " -x@"
+	        if ($listfile -like '* *') {
+	            $arguments += "`"$($listfile)`""
+	        } else {
+	            $arguments += $listfile
+	        }
+	    }
 	
 	    Write-Verbose $arguments
 	
