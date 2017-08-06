@@ -17,7 +17,7 @@ function Test-ModuleRoot {
 				}
 			}
 			'ModuleManifest' {
-				$psd1Files = [array](Resolve-Path (Join-Path $Path '*.psd1') -ErrorAction 'SilentlyContinue')
+				$psd1Files = [array](Resolve-Path (Join-Path $Path '*.psd1') -ErrorAction 'SilentlyContinue' | Where-Object { $_.Name -ne 'module.psd1' })
 				if ($psd1Files.Count -eq 1) {
 					return $true
 				} elseif ($psd1Files.Count -gt 1) {
