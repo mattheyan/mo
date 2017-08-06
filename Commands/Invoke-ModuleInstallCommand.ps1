@@ -135,7 +135,7 @@ function Invoke-ModuleInstallCommand {
 
                     $modulesFolderHash = $modulesFolder.ToLower() | Get-Hash -OutputType 'Bytes'
 
-                    $modulesFolderTempName = [Convert]::ToBase64String($modulesFolderHash)
+                    $modulesFolderTempName = [Uri]::EscapeDataString([Convert]::ToBase64String($modulesFolderHash))
 
                     if (Test-Path "$tempFolder\.staging\$modulesFolderTempName") {
                         Write-Verbose "Cleaning up old temp directory..."
