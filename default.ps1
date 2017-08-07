@@ -18,7 +18,7 @@ properties {
 	if ($env:ChocolateyLocal -and (Test-Path $env:ChocolateyLocal)) {
 		$outDir = $env:ChocolateyLocal
 	} else {
-		$outDir = Join-Path $env:LOCALAPPDATA 'PowerShellPackageManager'
+		$outDir = Join-Path $env:LOCALAPPDATA 'Mo'
 		if (-not(Test-Path $outDir)) {
 			New-Item $outDir -Type Directory | Out-Null
 		}
@@ -50,18 +50,6 @@ task EnsureDeployProperties -depends EnsureBuildProperties  {
 	if (-not($chocoApiKey)) {
 		throw "Set enviornment variable 'MyGet_ApiKey' to provide access to the choco pkg destination."
 	}
-}
-
-task UpdateFunctionsToExport {
-	$FunctionsToExport = @()
-
-	Get-ChildItem "$($PsakeTaskRoot)\Commands" | ForEach-Object {
-		$FunctionsToExport += ([IO.Path]::GetFileNameWithoutExtension($_.Name))
-	}
-
-	$FunctionsToExport += 'Invoke-ModuleCommand'
-
-	Update-ModuleManifest "$($PsakeTaskRoot)\PowerShellPackageManager.psd1" -FunctionsToExport $FunctionsToExport
 }
 
 task Build -depends EnsureBuildProperties,Choco:BuildPackages

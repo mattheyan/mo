@@ -25,6 +25,6 @@ FOR /L %%i IN (1,1,%argCount%) DO (
 :: Set a random value to signal that changes to the PSModulePath will not be seen by this process
 SET PSModulePathProcessID=%RANDOM%
 
-@powershell -NoProfile -ExecutionPolicy Bypass -Command "ipmo ~\Workspace\PowerShellPackageManager\PowerShellPackageManager.psd1 ; Invoke-ModuleCommand !argstring!"
+@powershell -NoProfile -ExecutionPolicy Bypass -Command "ipmo ~\Workspace\mo\Mo.psd1 ; Invoke-MoCommand !argstring!"
 
 ENDLOCAL

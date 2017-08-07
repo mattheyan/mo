@@ -31,7 +31,7 @@ function Get-TempFolder {
     param(
     )
 
-    $tempFolder = "$($env:TEMP)\PowerShellPackageManager"
+    $tempFolder = "$($env:TEMP)\Mo"
 
     if (-not(Test-Path $tempFolder)) {
         mkdir $tempFolder | Out-Null
@@ -79,7 +79,7 @@ function Get-Hash {
     }
 }
 
-function Invoke-ModuleCommand {
+function Invoke-MoCommand {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromRemainingArguments=$true)]
@@ -134,7 +134,7 @@ function Invoke-ModuleCommand {
     }
 
     Write-Verbose "Checking for 'Invoke-Module$($arg0)Command' cmdlet."
-    $cmdlet = Get-Command "Invoke-Module$($arg0)Command" -Module 'PowerShellPackageManager' -EA 0
+    $cmdlet = Get-Command "Invoke-Module$($arg0)Command" -Module 'Mo' -EA 0
 
     if ($cmdlet) {
         $verb = $arg0
@@ -149,7 +149,7 @@ function Invoke-ModuleCommand {
     } else {
         if ($arg1) {
             Write-Verbose "Checking for 'Invoke-Module$($arg0)$($arg1)Command' cmdlet."
-            $cmdlet = Get-Command "Invoke-Module$($arg0)$($arg1)Command" -Module 'PowerShellPackageManager' -EA 0
+            $cmdlet = Get-Command "Invoke-Module$($arg0)$($arg1)Command" -Module 'Mo' -EA 0
             if ($cmdlet) {
                 $verb = $arg1
                 $noun = "Module$($arg0)"
@@ -161,7 +161,7 @@ function Invoke-ModuleCommand {
             }
         } else {
             Write-Verbose "Checking for 'Invoke-Module$($arg0)GetCommand' cmdlet."
-            $cmdlet = Get-Command "Invoke-Module$($arg0)GetCommand" -Module 'PowerShellPackageManager' -EA 0
+            $cmdlet = Get-Command "Invoke-Module$($arg0)GetCommand" -Module 'Mo' -EA 0
             if ($cmdlet) {
                 $verb = "Get"
                 $noun = "Module$($arg0)"
