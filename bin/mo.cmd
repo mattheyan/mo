@@ -29,13 +29,20 @@ REM Find the PowerShell module in the root directory.
 REM http://stackoverflow.com/a/16575196
 REM http://ss64.com/nt/for2.html
 REM http://stackoverflow.com/a/18464353
-for %%f in (%root%\*.psd1) do set module=%%f
+for %%f in (%root%\%name%.psd1) do set module=%%f
 IF [%module%] == [] (
-    for %%f in (%root%\*.psm1) do SET module=%%f
+    for %%f in (%root%\%name%.psm1) do SET module=%%f
+    IF [%module%] == [] (
+        REM Fall back to load a 'psm1' file module with any name.
+        for %%f in (%root%\*.psm1) do set module=%%f
+    )
 )
 
 REM Write the program name and version at the start of each command.
 echo %name% v%version%
+
+REM Add the 'Modules' directory to 'PSModulePath' so that required modules can be loaded.
+SET PSModulePath=%root%\Modules;%PSModulePath%
 
 REM Load the PowerShell module and execute the command script.
 @powershell -ExecutionPolicy Bypass -NoProfile -Command "ipmo '%module%'; & '%root%\Commands\%command%.ps1' %args%"
