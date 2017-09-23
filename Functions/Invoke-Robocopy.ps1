@@ -110,6 +110,12 @@ function Invoke-Robocopy {
         return
     }
 
+    # https://blogs.technet.microsoft.com/deploymentguys/2008/06/16/robocopy-exit-codes/
+    $validExitCodes = @(
+        0, # No errors occurred and no files were copied.
+        1 # One of more files were copied successfully.
+    )
+
     $argsArray = New-Object 'System.Collections.Generic.List[string]'
 
     # $argsArray.Add('robocopy') | Out-Null
@@ -255,5 +261,9 @@ function Invoke-Robocopy {
         }
     } else {
         Invoke-Expression $Script
+
+        if (-not($validExitCodes -contains $LASTEXITCODE)) {
+            Write-Error "Robocopy failed with code $($LASTEXITCODE)."
+        }
     }
 }
