@@ -20,7 +20,12 @@ function Invoke-ModuleInstallCommand {
 
         [ValidateSet('AllUsers', 'CurrentUser')]
         [Parameter(ParameterSetName='GlobalModule', Mandatory=$true)]
-        [string]$Scope
+        [string]$Scope,
+
+        [Parameter(ParameterSetName='GlobalModule')]
+        [switch]$AllowClobber,
+
+        [switch]$Force
     )
 
     if ($Global.IsPresent) {
@@ -46,6 +51,10 @@ function Invoke-ModuleInstallCommand {
                 $installModuleArgs['Scope'] = $Scope
             }
 
+            if ($AllowClobber.IsPresent) {
+                $installModuleArgs['AllowClobber'] = $true
+            }
+
             Write-Message "Installing module $($module.Name)@$($module.Version)..."
             $module | Install-Module @installModuleArgs
         } else {
@@ -64,13 +73,19 @@ function Invoke-ModuleInstallCommand {
             if ($module) {
                 if (-not($Version) -or $module.Version -eq $Version) {
                     Write-Message "Module $($Name)@$($module.Version) is already installed."
-                    return 
+                    if (-not($Force.IsPresent)) {
+                        return 
+                    }
                 } elseif (-not($module.Version)) {
                     Write-Warning "Module $($Name)@??? is installed."
-                    return
+                    if (-not($Force.IsPresent)) {
+                        return
+                    }
                 } elseif ($module.Version -ge $Version) {
                     Write-Warning "Module $($Name)@$($module.Version) is installed."
-                    return
+                    if (-not($Force.IsPresent)) {
+                        return
+                    }
                 } else {
                     Write-Message "Module $($Name)@$(if($module.Version){$module.Version}else{'???'}) is installed."
                 }
@@ -79,6 +94,10 @@ function Invoke-ModuleInstallCommand {
             $findPackageArgs = @{
                 'Name' = $Name
                 'Provider' = 'NuGet'
+            }
+
+            if ($Source) {
+                $findPackageArgs['Source'] = $Source
             }
 
             if ($Version) {
@@ -94,6 +113,10 @@ function Invoke-ModuleInstallCommand {
                 $savePackageArgs = @{
                     'Path' = $tempFolder
                     'Provider' = 'NuGet'
+                }
+
+                if ($Source) {
+                    $savePackageArgs['Source'] = $Source
                 }
 
                 if ($Version) {
