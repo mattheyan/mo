@@ -52,6 +52,10 @@ task EnsureDeployProperties -depends EnsureBuildProperties  {
 	}
 }
 
+task Test {
+	Invoke-Pester
+}
+
 task Build -depends EnsureBuildProperties,Choco:BuildPackages
 
 task Deploy -depends EnsureDeployProperties,Choco:DeployPackages

@@ -16,6 +16,32 @@ Get-ChildItem "$($PSScriptRoot)\Commands" -Recurse -Filter *.ps1 | ForEach-Objec
     . $_.FullName
 }
 
+. $PSScriptRoot\MoTabExpansion.ps1
+
+function Set-MoTabExpansion {
+    if (Test-Path Function:\TabExpansion) {
+        Rename-Item Function:\TabExpansion TabExpansionBackup
+    }
+
+    function global:TabExpansion($line, $lastWord) {
+        $lastBlock = [regex]::Split($line, '[|;]')[-1].TrimStart()
+
+        switch -regex ($lastBlock) {
+            # Execute git tab completion for all git-related commands
+            "^$(Get-AliasPattern mo) (.*)" { MoTabExpansion $lastBlock }
+
+            # Fall back on existing tab expansion
+            default {
+                if (Test-Path Function:\TabExpansionBackup) {
+                    TabExpansionBackup $line $lastWord
+                }
+            }
+        }
+    }
+}
+
+Set-MoTabExpansion
+
 function Write-Message {
     [CmdletBinding()]
     param(
