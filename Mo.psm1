@@ -112,7 +112,7 @@ function Invoke-MoCommand {
         $Params
     )
 
-    $PSModuleAutoloadingPreference = 'None'
+    $PSModuleAutoLoadingPreference = 'None'
 
     $ErrorActionPreference = 'Stop'
     $InformationPreference = 'Continue'
