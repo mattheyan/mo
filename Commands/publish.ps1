@@ -33,7 +33,7 @@ function Invoke-ModulePublishCommand {
 
     Write-Verbose "Searching for module root from '$($PWD.Path)'..."
 
-    $root = Find-ModuleRoot
+    $root = Find-ModuleRoot -Indicators 'ModuleDotPsd1File','ModuleManifest','ModulesFolder'
 
     if ($Name) {
         $indicators = @('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')

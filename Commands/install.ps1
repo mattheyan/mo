@@ -63,7 +63,7 @@ function Invoke-ModuleInstallCommand {
     } else {
         Write-Verbose "Searching for module root from '$($PWD.Path)'..."
 
-        $root = Find-ModuleRoot
+        $root = Find-ModuleRoot -Indicators 'ModuleDotPsd1File','ModuleManifest','ModulesFolder'
 
         if ($root) {
             Write-Verbose "Found module root '$($root.Path)'."

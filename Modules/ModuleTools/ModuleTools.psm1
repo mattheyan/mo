@@ -1,8 +1,3 @@
-if (-not($env:PSModulePathProcessID)) {
-	$env:PSModulePathProcessID = [System.Diagnostics.Process]::GetCurrentProcess().Id
-}
-
-
 function Add-ModulePath {
 	[CmdletBinding(PositionalBinding=$false, SupportsShouldProcess=$true, ConfirmImpact='Medium')]
 	param(
@@ -51,6 +46,239 @@ function Add-ModulePath {
 	            }
 	        }
 	    }
+	}
+}
+
+function Expand-ModulePackage {
+	################################################################################
+	#  Expand-ModulePackage v0.2.0                                                 #
+	#  --------------------------------------------------------------------------  #
+	#  Extract a module package and clean up package files.                        #
+	#  --------------------------------------------------------------------------  #
+	#  Author(s): Bryan Matthews                                                   #
+	#  Company: VC3, Inc.                                                          #
+	#  --------------------------------------------------------------------------  #
+	#  Change Log:                                                                 #
+	#  [0.3.0] - 2017-09-24                                                        #
+	#  Changed:                                                                    #
+	#  - Give no special preference to 'Expand-Archive' command.                   #
+	#  - Avoid silent error when attempting to find 'Expand-Archive' command.      #
+	#  - Use 'SuppressExtensionCheck' when using 7zip to avoid temp file.          #
+	#  - Retry cleanup up to 3 times to get around potential temporary errors.     #
+	#  [0.2.0] - 2017-09-24                                                        #
+	#  Fixed:                                                                      #
+	#  - Fix temp file typo.                                                       #
+	#  - Import built-in module b/c auto-loading may not result in its discovery.  #
+	#  - Always rename zip file since 7zip shim also throws errors.                #
+	#  [0.1.0] - 2017-09-21                                                        #
+	#  Added:                                                                      #
+	#  - Unzip via 'Expand-Archive' or custom script.                              #
+	#  - Delete 'package' and '_rels' folders.                                     #
+	#  - Delete '[Content_Types].xml' and '*.nuspec' files.                        #
+	################################################################################
+	[CmdletBinding()]
+	param(
+	    [Alias('Path')]
+	    [Alias('FullName')]
+	    [Parameter(Mandatory=$true, Position=0, ValueFromPipelineByPropertyName=$true)]
+	    [string]$PackageFileName,
+	
+	    [Parameter(Mandatory=$true)]
+	    [string]$ModuleName,
+	
+	    [Parameter(Mandatory=$true)]
+	    [string]$DestinationPath,
+	
+	    [ScriptBlock]$UnzipScript,
+	
+	    [switch]$Force
+	)
+	
+	Write-Verbose "Expanding module package '$($PackageFileName)'..."
+	
+	if (Test-Path $DestinationPath -Type Container) {
+	    if ($Force.IsPresent) {
+	        Write-Verbose "Removing destination directory '$($DestinationPath)'."
+	        Remove-Item $DestinationPath -Recurse -Force -Confirm:$false -EA 0 | Out-Null
+	        Remove-Item $DestinationPath -Recurse -Force -Confirm:$false | Out-Null
+	    } else {
+	        Write-Error "Destination path '$($DestinationPath)' already exists."
+	        return
+	    }
+	}
+	
+	$PackageFileExtension = [IO.Path]::GetExtension($PackageFileName)
+	
+	Write-Verbose "Package file extension is '$($PackageFileExtension)'."
+	
+	if ($UnzipScript) {
+	    Write-Verbose "Running custom unzip script..."
+	    $unzipPath = & $UnzipScript $PackageFileName $DestinationPath
+	    if ($unzipPath) {
+	        if ($unzipPath -ne $DestinationPath) {
+	            Write-Warning "Custom script unzipped file into unexpected destination '$($unzipPath)'."
+	        }
+	    } else {
+	        Write-Error "Failed to unzip file '$($PackageFileName)' with custom script."
+	        return
+	    }
+	} else {
+	    Write-Verbose "Searching for 'Expand-Archive' command."
+	
+	    try {
+	        if (-not(Get-Module 'Microsoft.PowerShell.Archive' -EA 0)) {
+	            if (Get-Module 'Microsoft.PowerShell.Archive' -ListAvailable -EA 0) {
+	                # Import-Module 'Microsoft.PowerShell.Archive'
+	            }
+	        }
+	    } catch {
+	        Write-Verbose "Encountered error '$($_.Exception.Message)' while attempting to import module 'Microsoft.PowerShell.Archive'."
+	    }
+	
+	    # NOTE: Use wildcard & filtering to avoid problematic error handling in custom PowerShell host (ex: chocolatey)
+	    $expandArchiveCommand = Get-Command '*-Archive' -EA 0 | Where-Object { $_.Name -eq 'Expand-Archive' }
+	
+	    if ($expandArchiveCommand) {
+	        if ($expandArchiveCommand -is [array]) {
+	            if ($expandArchiveCommand.Count -eq 1) {
+	                Write-Verbose "Found 'Expand-Archive' command in module '$($expandArchiveCommand.ModuleName)'."
+	            } else {
+	                Write-Verbose "Found $($expandArchiveCommand.Count) 'Expand-Archive' commands."
+	                $expandArchiveCommand = $expandArchiveCommand[0]
+	                Write-Verbose "Using the first available 'Expand-Archive' command, from module '$($expandArchiveCommand.ModuleName)'."
+	            }
+	        } else {
+	            Write-Verbose "Found 1 'Expand-Archive' command."
+	        }
+	
+	        $expandArchiveArgs = @{
+	            'Path' = $PackageFileName
+	            'DestinationPath' = $DestinationPath 
+	        }
+	
+	        if ($expandArchiveCommand.ModuleName -eq 'Microsoft.PowerShell.Archive') {
+	            # The built-in 'Expand-Archive' will fail on extensions other than '.zip'
+	            if ($PackageFileExtension -ne '.zip') {
+	                Write-Verbose "Copying to temporary '.zip' file to avoid error."
+	                $tmpFile = "$($env:TEMP)\$([guid]::NewGuid()).zip"
+	                Copy-Item $PackageFileName $tmpFile
+	                $expandArchiveArgs['Path'] = $tmpFile
+	            }
+	        } elseif ($expandArchiveCommand.ModuleName -eq '7zip') {
+	            $expandArchiveArgs['Silent'] = $true
+	            $expandArchiveArgs['IgnoreNonFatalErrors'] = $true
+	            if ($PackageFileExtension -ne '.zip') {
+	                $expandArchiveArgs['SuppressExtensionCheck'] = $true
+	            }
+	        }
+	
+	        & $expandArchiveCommand @expandArchiveArgs
+	    } else {
+	        Write-Error "Unable to find an 'Expand-Archive' command for extracting the package file."
+	    }
+	}
+	
+	if (-not(Test-Path $DestinationPath -Type Container)) {
+	    Write-Error "Destination path '$($DestinationPath)' does not exist after unzip operation."
+	    return
+	}
+	
+	Write-Verbose "Cleaning up unzipped module output..."
+	
+	# Make multiple attempts to clean package files since deletions could fail
+	# temporarily due to file locking, recurive deletion, etc.
+	$cleanSuccessful = $false
+	$cleanAttempts = 0
+	
+	do {
+	    $cleanAttempts += 1
+	
+	    try {
+	        if (Test-Path "$($DestinationPath)\_rels") {
+	            Write-Verbose "Removing '_rels' folder."
+	            Remove-Item "$($DestinationPath)\_rels" -Recurse -Force -Confirm:$false | Out-Null
+	        }
+	
+	        if (Test-Path "$($DestinationPath)\package") {
+	            Write-Verbose "Removing 'package' folder."
+	            Remove-Item "$($DestinationPath)\package" -Recurse -Force -Confirm:$false | Out-Null
+	        }
+	
+	        if (Test-Path -LiteralPath "$($DestinationPath)\[Content_Types].xml") {
+	            Write-Verbose "Removing '[Content_Types].xml' file."
+	            Remove-Item -LiteralPath "$($DestinationPath)\[Content_Types].xml" -Force -Confirm:$false | Out-Null
+	        }
+	
+	        if (Test-Path "$($DestinationPath)\$($ModuleName).nuspec") {
+	            Write-Verbose "Removing nuspec file."
+	            Remove-Item "$($DestinationPath)\$($ModuleName).nuspec" -Force -Confirm:$false | Out-Null
+	        }
+	
+	        $cleanSuccessful = $true
+	    } catch {
+	        Write-Verbose "Encountered error '$($_.Exception.Message)' while cleaning package files."
+	    }
+	} while (-not($cleanSuccessful) -and $cleanAttempts -lt 3)
+}
+
+function Find-ModuleRoot {
+	[CmdletBinding()]
+	param(
+	    [Alias('p')]
+	    [string]$Path=$PWD.Path,
+	
+	    # A prioritized list of indicators to check for
+	    [ValidateSet('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')]
+	    [string[]]$Indicators=@('ModuleManifest', 'ModulesFolder')
+	)
+	
+	# Based on NPM (and git) file/folder searchig algorithm.
+	# https://docs.npmjs.com/files/folders#more-information
+	
+	$rootPath = $null
+	$rootIndicator = $null
+	
+	Write-Verbose "Checking directory '$($Path)'..."
+	foreach ($indicator in $indicators) {
+	    if (-not($rootPath)) {
+	        if (Test-ModuleRoot $Path -Indicators $indicator) {
+	            Write-Verbose "Found module root indicator '$($indicator)'."
+	            $rootPath = $Path
+	            $rootIndicator = $indicator
+	            break
+	        }
+	    }
+	}
+	
+	if (-not($rootPath)) {
+	    Get-ParentItem -Path $Path -Recurse | ForEach-Object {
+	        if (-not($rootPath)) {
+	            Write-Verbose "Checking directory '$($_.FullName)'..."
+	            foreach ($indicator in $indicators) {
+	                if (-not($rootPath)) {
+	                    if (Test-ModuleRoot $_.FullName -Indicators $indicator) {
+	                        Write-Verbose "Found module root indicator '$($indicator)'."
+	                        $rootPath = $_.FullName
+	                        $rootIndicator = $indicator
+	                        break
+	                    }
+	                }
+	            }
+	
+	            if ($rootPath) {
+	                break
+	            }
+	        }
+	    }
+	}
+	
+	if ($rootPath) {
+	    $root = New-Object 'PSObject'
+	
+	    $root | Add-Member -Type 'NoteProperty' -Name 'Indicator' -Value $rootIndicator
+	    $root | Add-Member -Type 'NoteProperty' -Name 'Path' -Value $rootPath
+	
+	    Write-Output $root
 	}
 }
 
@@ -154,172 +382,203 @@ function Reset-ModulePath {
 	)
 	
 	
-	Test-PowerShellProcess -Force
-	
 	if ($PSCmdlet.ShouldProcess('PSModulePath', 'Reset Current Session Value')) {
 	    $env:PSModulePath = ((Get-ModulePath -Persisted) | foreach 'Path') -join ';'
 	}
 }
 
 function Resolve-Module {
-	[CmdletBinding(DefaultParameterSetName='FromLocation')]
+	################################################################################
+	#  Resolve-Module v0.3.0                                                       #
+	#  --------------------------------------------------------------------------  #
+	#  Discover PowerShell modules in the NPM "require" style.                     #
+	#  --------------------------------------------------------------------------  #
+	#  Author(s): Bryan Matthews                                                   #
+	#  Company: VC3, Inc.                                                          #
+	#  --------------------------------------------------------------------------  #
+	#  Change Log:                                                                 #
+	#  [0.3.0] - 2017-09-21                                                        #
+	#  Added:                                                                      #
+	#  - Support installing from local directory path                              #
+	#  - Support specifying and/or local vs. global search                         #
+	#  - Support searching a specific folder                                       #
+	#  - Support searching -only- user or machine scope                            #
+	#  [0.2.0] - 2017-08-04                                                        #
+	#  Fixed:                                                                      #
+	#  - Use 'BindingVariable' in 'Import-LocalizedData' call                      #
+	#  [0.1.0] - 2017-07-13                                                        #
+	#  Added:                                                                      #
+	#  - Support for finding and importing '.psm1' and '.psd1' files.              #
+	#  - Support for finding module files in a nested version folder.              #
+	################################################################################
+	[CmdletBinding(DefaultParameterSetName='SearchLocalAndGlobal')]
 	param(
 	    [Alias('Name')]
 	    [Parameter(Mandatory=$true, Position=0)]
 	    [string]$ModuleName,
 	
-	    [Alias('Modules')]
-	    [Parameter(ParameterSetName='InModulesFolder', Mandatory=$true)]
+	    [Parameter(ParameterSetName='SearchLocal')]
 	    [string]$ModulesFolder,
 	
-	    [Parameter(ParameterSetName='FromLocation')]
-	    [string]$Location
+	    [Parameter(ParameterSetName='SearchGlobal')]
+	    [switch]$Global,
+	
+	    [Parameter(ParameterSetName='SearchLocalAndGlobal')]
+	    [Parameter(ParameterSetName='SearchGlobal')]
+	    [ValidateSet('CurrentUser', 'System')]
+	    [string]$Scope
 	)
 	
-	if ($PSCmdlet.ParameterSetName -eq 'FromLocation') {
-	    if ($Location) {
-	        if (-not(Test-Path $Location)) {
-	            Write-Error "Path '$($Location)' doesn't exist."
-	            return
-	        }
+	Write-Verbose "Attempting to resolve module '$($ModuleName)'..."
 	
-	        $Location = (Resolve-Path $Location).Path
-	    } else {
-	        # Start from the current script's location, -OR- the current working directory
-	        if ($MyInvocation.PSScriptRoot) {
-	            Write-Verbose "Searching from script file '$($MyInvocation.PSCommandPath)..."
-	            $Location = $MyInvocation.PSScriptRoot
-	        } else {
-	            Write-Verbose "Searching from current working directory '$($PWD.Path)..."
-	            $Location = $PWD.Path
-	        }
-	    }
-	
-	    Write-Verbose "Attempting to resolve module '$($ModuleName)' from '$($Location)'..."
-	
-	    $searchDir = $Location
-	
-	    # Search for the nearest 'Modules' directory
-	    while ($searchDir) {
-	        if (Test-Path "$searchDir\Modules") {
-	            $ModulesFolder = "$searchDir\Modules"
-	            break
-	        }
-	
-	        $searchDir = Split-Path $searchDir -Parent
-	    }
-	
-	    if (-not($ModulesFolder)) {
-	        Write-Error "Couldn't find 'Modules' folder from '$($Location)'."
-	        return
-	    }
-	
-	    $Recurse = $true
-	} else {
-	    if (-not(Test-Path $ModulesFolder)) {
-	        Write-Error "Path '$($ModulesFolder)' doesn't exist."
-	        return
-	    }
-	
-	    if (-not(Test-Path $ModulesFolder -Type 'Container')) {
-	        Write-Error "Path '$($ModulesFolder)' is not a folder."
-	        return
-	    }
-	
-	    $ModulesFolder = (Resolve-Path $ModulesFolder).Path
-	
-	    $Recurse = $false
-	
-	    Write-Verbose "Attempting to resolve module '$($ModuleName)' in folder '$($ModulesFolder)'..."
-	}
-	
-	do {
+	if ($PSCmdlet.ParameterSetName -like 'SearchLocal*') {
 	    $localModules = @()
 	
-	    Get-ChildItem $ModulesFolder | Where-Object { $_.PSIsContainer } | ForEach-Object {
-	
-	        Write-Verbose "Searching '$($_.FullName)'..."
-	
-	        $moduleVersion = $null
-	
-	        Write-Verbose "Checking for module manifest in root folder..."
-	        $moduleFile = Join-Path $_.FullName "$($ModuleName).psd1"
-	        if (Test-Path $moduleFile) {
-	            $moduleManifest = Import-LocalizedData -FileName "$($ModuleName).psd1" -BaseDirectory $_.FullName
-	            $moduleVersion = $moduleManifest.ModuleVersion
-	            Write-Verbose "Found module manifest for '$($ModuleName)' v$($moduleVersion)."
+	    if (-not($ModulesFolder)) {
+	        if ($MyInvocation.PSScriptRoot) {
+	            Write-Verbose "Searching from script file '$($MyInvocation.PSCommandPath)..."
+	            $searchDir = $MyInvocation.PSScriptRoot
 	        } else {
-	            Write-Verbose "Checking for module file in root folder..."
-	            $moduleFile = Join-Path $_.FullName "$($ModuleName).psm1"
-	            if (Test-Path $moduleFile) {
-	                Write-Verbose "Found module file for '$($ModuleName)'."
-	            } else {
-	                # NOTE: Check for a single *version* folder (simplification).
-	                $versionFolder = $null
-	                Write-Verbose "Looking for version folder..."
-	                $children = [array](Get-ChildItem $_.FullName)
-	                Write-Verbose "Found $($children.Count) children: $(($children | Select-Object -ExpandProperty Name) -join ', ')."
-	                if (($children.Count -eq 1) -and $children[0].PSIsContainer) {
-	                    try {
-	                        [System.Version]::Parse($children[0].Name) | Out-Null
-	                        $versionFolder = $children[0]
-	                    } catch {
-	                        # Not a version, do nothing
-	                        Write-Verbose "Unable to parse '$($children[0].Name)' as a .NET version."
-	                    }
-	                }
-	
-	                if ($versionFolder) {
-	                    Write-Verbose "Checking for module manifest in '$($versionFolder.Name)' folder..."
-	                    $moduleFile = Join-Path $versionFolder.FullName "$($ModuleName).psd1"
-	                    if (Test-Path $moduleFile) {
-	                        Write-Verbose "Found module manifest for '$($ModuleName)'."
-	                    } else {
-	                        Write-Verbose "Module manifest couldn't be found in version folder."
-	                        $moduleFile = $null
-	                    }
-	                } else {
-	                    Write-Verbose "No version folder was found."
-	                    $moduleFile = $null
-	                }
-	            }
+	            Write-Verbose "Searching from current working directory '$($PWD.Path)..."
+	            $searchDir = $PWD.Path
 	        }
 	
-	        if ($moduleFile) {
-	            Write-Verbose "Found module '$($ModuleName)' at '$($moduleFile)'."
+	        $ModulesFolder = Join-Path $searchDir 'Modules'
+	    }
+	
+	    do {
+	        if (-not($ModulesFolder)) {
+	            $ModulesFolder = Join-Path $searchDir 'Modules'
+	        }
+	
+	        if (Test-Path ($ModulesFolder)) {
+	            Get-ChildItem $ModulesFolder | Where-Object { $_.PSIsContainer } | ForEach-Object {
+	
+	                Write-Verbose "Searching '$($_.FullName)'..."
+	
+	                $moduleVersion = $null
+	
+	                Write-Verbose "Checking for module manifest in root folder..."
+	                $moduleFile = Join-Path $_.FullName "$($ModuleName).psd1"
+	                if (Test-Path $moduleFile) {
+	                    Import-LocalizedData -BindingVariable 'moduleManifest' -FileName "$($ModuleName).psd1" -BaseDirectory $_.FullName
+	                    $moduleVersion = $moduleManifest.ModuleVersion
+	                    Write-Verbose "Found module manifest for '$($ModuleName)' v$($moduleVersion)."
+	                } else {
+	                    Write-Verbose "Checking for module file in root folder..."
+	                    $moduleFile = Join-Path $_.FullName "$($ModuleName).psm1"
+	                    if (Test-Path $moduleFile) {
+	                        Write-Verbose "Found module file for '$($ModuleName)'."
+	                    } else {
+	                        # NOTE: Check for a single *version* folder (simplification).
+	                        $versionFolder = $null
+	                        Write-Verbose "Looking for version folder..."
+	                        $children = [array](Get-ChildItem $_.FullName)
+	                        Write-Verbose "Found $($children.Count) children: $(($children | Select-Object -ExpandProperty Name) -join ', ')."
+	                        if (($children.Count -eq 1) -and $children[0].PSIsContainer) {
+	                            try {
+	                                [System.Version]::Parse($children[0].Name) | Out-Null
+	                                $versionFolder = $children[0]
+	                            } catch {
+	                                # Not a version, do nothing
+	                                Write-Verbose "Unable to parse '$($children[0].Name)' as a .NET version."
+	                            }
+	                        }
+	
+	                        if ($versionFolder) {
+	                            Write-Verbose "Checking for module manifest in '$($versionFolder.Name)' folder..."
+	                            $moduleFile = Join-Path $versionFolder.FullName "$($ModuleName).psd1"
+	                            if (Test-Path $moduleFile) {
+	                                Write-Verbose "Found module manifest for '$($ModuleName)'."
+	                            } else {
+	                                Write-Verbose "Module manifest couldn't be found in version folder."
+	                                $moduleFile = $null
+	                            }
+	                        } else {
+	                            Write-Verbose "No version folder was found."
+	                            $moduleFile = $null
+	                        }
+	                    }
+	                }
+	
+	                if ($moduleFile) {
+	                    Write-Verbose "Found module '$($ModuleName)' at '$($moduleFile)'."
+	
+	                    $module = New-Object 'PSObject'
+	
+	                    $module | Add-Member -Type 'NoteProperty' -Name 'Name' -Value $ModuleName
+	                    $module | Add-Member -Type 'NoteProperty' -Name 'Version' -Value $moduleVersion
+	                    $module | Add-Member -Type 'NoteProperty' -Name 'Path' -Value $moduleFile
+	
+	                    $localModules += $module
+	                }
+	            }
+	
+	            if ($localModules.Count -gt 0) {
+	                Write-Output $localModules
+	                return;
+	            }
+	
+	            $searchDir = $null
+	        } elseif ($searchDir) {
+	            $searchDir = Split-Path $searchDir -Parent
+	        }
+	    } while ($searchDir)
+	}
+	
+	if ($PSCmdlet.ParameterSetName -like 'Search*Global') {
+	    Write-Verbose "Attempting to find global '$($ModuleName)' module on the %PSModulePath%..."
+	
+	    $candidateRootPaths = $null
+	
+	    if ($Scope -eq 'System') {
+	        $candidateRootPaths = @()
+	
+	        $candidateRootPaths += "$($env:ProgramFiles)\WindowsPowerShell\Modules"
+	
+	        $systemValue = [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')
+	        if ($systemValue) {
+	            $candidateRootPaths += $systemValue.Split(@(';'), 'RemoveEmptyEntries')
+	        }
+	
+	        Write-Verbose "Using candidate root paths '$($candidateRootPaths -join ';')'."
+	    } elseif ($Scope -eq 'CurrentUser') {
+	        $candidateRootPaths = @()
+	
+	        $candidateRootPaths += "$(Split-Path $PROFILE -Parent)\Modules"
+	
+	        $userValue = [Environment]::GetEnvironmentVariable('PSModulePath', 'User')
+	        if ($userValue) {
+	            $systemValues = [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine').Split(@(';'), 'RemoveEmptyEntries')
+	            $candidateRootPaths += $userValue.Split(@(';'), 'RemoveEmptyEntries') | Where-Object { -not($systemValues -contains $_) }
+	        }
+	
+	        Write-Verbose "Using candidate root paths '$($candidateRootPaths -join ';')'."
+	    }
+	
+	    $globalModules = @()
+	
+	    Get-Module -Name $ModuleName -ListAvailable | ForEach-Object {
+	        $moPath = $_.Path
+	
+	        if (-not($candidateRootPaths) -or ($candidateRootPaths | Where-Object { $moPath.StartsWith($_, $true, [Globalization.CultureInfo]::CurrentCulture) })) {
+	            Write-Verbose "Found installed module '$($ModuleName)' at '$($_.Path)'."
 	
 	            $module = New-Object 'PSObject'
 	
 	            $module | Add-Member -Type 'NoteProperty' -Name 'Name' -Value $ModuleName
-	            $module | Add-Member -Type 'NoteProperty' -Name 'Version' -Value $moduleVersion
-	            $module | Add-Member -Type 'NoteProperty' -Name 'Path' -Value $moduleFile
+	            $module | Add-Member -Type 'NoteProperty' -Name 'Version' -Value $_.Version
+	            $module | Add-Member -Type 'NoteProperty' -Name 'Path' -Value $_.Path
 	
-	            $localModules += $module
+	            $globalModules += $module
 	        }
 	    }
 	
-	    if ($localModules.Count -gt 0) {
-	        Write-Output $localModules
+	    if ($globalModules.Count -gt 0) {
+	        Write-Output $globalModules
 	        return
 	    }
-	
-	    if ($Recurse) {
-	        $searchDir = Split-Path (Split-Path $ModulesFolder -Parent) -Parent
-	
-	        $ModulesFolder = $null
-	
-	        while (-not($ModulesFolder) -and $searchDir) {
-	            if (Test-Path "$searchDir\Modules") {
-	                $ModulesFolder = "$searchDir\Modules"
-	            } else {
-	                $searchDir = Split-Path $searchDir -Parent
-	            }
-	        }
-	    } else {
-	        $ModulesFolder = $null
-	    }
-	
-	} while ($ModulesFolder)
+	}
 	
 	Write-Error "Couldn't resolve module '$($ModuleName)'."
 }
@@ -347,6 +606,43 @@ function Restore-ModulePath {
 	}
 }
 
+function Test-ModuleRoot {
+	[CmdletBinding()]
+	param(
+	    [Alias('p')]
+	    [string]$Path=$PWD.Path,
+	
+	    # A prioritized list of indicators to check for
+	    [ValidateSet('ModuleDotPsd1File', 'ModuleManifest', 'ModulesFolder')]
+	    [string[]]$Indicators=@('ModuleManifest', 'ModulesFolder')
+	)
+	
+	foreach ($indicator in $Indicators) {
+	    switch ($indicator) {
+	        'ModuleDotPsd1File' {
+	            if (Test-Path (Join-Path $Path 'module.psd1')) {
+	                return $true
+	            }
+	        }
+	        'ModuleManifest' {
+	            $psd1Files = [array](Resolve-Path (Join-Path $Path '*.psd1') -ErrorAction 'SilentlyContinue' | Where-Object { $_.Name -ne 'module.psd1' })
+	            if ($psd1Files.Count -eq 1) {
+	                return $true
+	            } elseif ($psd1Files.Count -gt 1) {
+	                Write-Warning "Found multiple '.psd1' files at path '$($Path)'."
+	            }
+	        }
+	        'ModulesFolder' {
+	            if (Test-Path (Join-Path $Path 'Modules')) {
+	                return $true
+	            }
+	        }
+	    }
+	}
+	
+	return $false
+}
+
 function Test-PowerShellProcess {
 	[CmdletBinding()]
 	param(
@@ -367,12 +663,4 @@ function Test-PowerShellProcess {
 	    Write-Warning "Changes to the PSModulePath may not take effect from within the calling process."
 	}
 }
-
-Export-ModuleMember -Function Add-ModulePath
-Export-ModuleMember -Function Get-ModulePath
-Export-ModuleMember -Function Remove-ModulePath
-Export-ModuleMember -Function Reset-ModulePath
-Export-ModuleMember -Function Restore-ModulePath
-Export-ModuleMember -Function Resolve-Module
-
 
